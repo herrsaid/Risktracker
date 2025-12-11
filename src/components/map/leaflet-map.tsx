@@ -4,8 +4,9 @@ import { useEffect, useState } from "react"
 import { MapContainer, TileLayer, Marker, Popup, Polygon, Circle, useMapEvents } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
+import { fetchDevices } from "../../app/actions/devices"
 
-// Fix default marker icons in Next.js
+
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -17,7 +18,10 @@ type DeviceData = {
   id: string
   position: [number, number]
   name: string
-  status: "active" | "inactive"
+  date: string
+  battery: string
+  altitude: number
+  accuracy: number
 }
 
 type ZoneData = {
@@ -25,72 +29,34 @@ type ZoneData = {
   name: string
   type: "danger" | "alert"
   shape: "polygon" | "circle"
-  coordinates?: [number, number][] 
-  center?: [number, number] 
-  radius?: number 
+  coordinates?: [number, number][]
+  center?: [number, number]
+  radius?: number
 }
 
-
-const DUMMY_DEVICES: DeviceData[] = [
-  { id: "dev1", position: [40.7128, -74.0060], name: "Device NYC", status: "active" },
-  { id: "dev2", position: [51.5074, -0.1278], name: "Device London", status: "active" },
-  { id: "dev3", position: [35.6762, 139.6503], name: "Device Tokyo", status: "inactive" },
-  { id: "dev4", position: [48.8566, 2.3522], name: "Device Paris", status: "active" },
-  { id: "dev5", position: [-33.8688, 151.2093], name: "Device Sydney", status: "active" },
-  { id: "dev6", position: [37.7749, -122.4194], name: "Device SF", status: "inactive" },
-]
-
+// Dummy zone data - will be replaced with API later
 const DUMMY_ZONES: ZoneData[] = [
   {
     id: "zone1",
-    name: "NYC Danger Zone",
-    type: "danger",
+    name: "Marrakech Alert Zone",
+    type: "alert",
     shape: "circle",
-    center: [40.7128, -74.0060], // Device NYC position
-    radius: 8000, // 8km radius
+    center: [32.22636, -7.95145],
+    radius: 5000,
   },
   {
     id: "zone2",
-    name: "London Alert Zone",
-    type: "alert",
-    shape: "circle",
-    center: [51.5074, -0.1278], // Device London position
-    radius: 10000, // 10km radius
-  },
-  {
-    id: "zone3",
-    name: "Tokyo Danger Zone",
+    name: "City Center Danger Zone",
     type: "danger",
     shape: "polygon",
     coordinates: [
-      [35.69, 139.64],  // Around Device Tokyo
-      [35.68, 139.66],
-      [35.66, 139.65],
-      [35.67, 139.63],
-    ],
-  },
-  {
-    id: "zone4",
-    name: "Paris Alert Zone",
-    type: "alert",
-    shape: "circle",
-    center: [48.8566, 2.3522], // Device Paris position
-    radius: 5000, // 5km radius
-  },
-  {
-    id: "zone5",
-    name: "SF Danger Zone",
-    type: "danger",
-    shape: "polygon",
-    coordinates: [
-      [37.78, -122.43],  // Around Device SF
-      [37.77, -122.41],
-      [37.76, -122.42],
-      [37.77, -122.44],
+      [32.23, -7.96],
+      [32.22, -7.95],
+      [32.21, -7.95],
+      [32.22, -7.94],
     ],
   },
 ]
-
 
 function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
   useMapEvents({
@@ -105,33 +71,89 @@ export function LeafletMap() {
   const [devices, setDevices] = useState<DeviceData[]>([])
   const [zones, setZones] = useState<ZoneData[]>([])
   const [isMounted, setIsMounted] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     setIsMounted(true)
-    // Load dummy data - later replace with API calls
-    setDevices(DUMMY_DEVICES)
-    setZones(DUMMY_ZONES)
+    
+    // Fetch devices using Server Action
+    const loadDevices = async () => {
+      try {
+        const data = await fetchDevices()
+        
+        if (data.error) {
+          throw new Error(data.error)
+        }
+        
+        if (data.Data && Array.isArray(data.Data)) {
+          const formattedDevices: DeviceData[] = data.Data.map((device: any) => ({
+            id: device.DeviceID,
+            position: [device.Latitude, device.Longitude] as [number, number],
+            name: device.DeviceName,
+            date: device.Date,
+            battery: device.Battery || "N/A",
+            altitude: device["Altitude(m)"] || 0,
+            accuracy: device.Accuracy || 0,
+          }))
+          
+          setDevices(formattedDevices)
+          console.log("Devices loaded:", formattedDevices)
+        }
+        
+        // Load dummy zones
+        setZones(DUMMY_ZONES)
+        setLoading(false)
+      } catch (err) {
+        console.error("Error loading devices:", err)
+        setError("Failed to load devices")
+        setLoading(false)
+      }
+    }
+
+    loadDevices()
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(loadDevices, 30000)
+    return () => clearInterval(interval)
   }, [])
 
   const handleMapClick = (lat: number, lng: number) => {
-    const newDevice: DeviceData = {
-      id: `dev-${Date.now()}`,
-      position: [lat, lng],
-      name: `Device ${devices.length + 1}`,
-      status: "active",
-    }
-    setDevices([...devices, newDevice])
-    console.log("Device added:", lat, lng)
+    console.log("Map clicked at:", lat, lng)
   }
 
   if (!isMounted) {
     return <div className="h-full w-full bg-muted rounded-lg" />
   }
 
+  if (loading) {
+    return (
+      <div className="h-full w-full bg-muted rounded-lg flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg font-semibold mb-2">Loading devices...</div>
+          <div className="text-sm text-muted-foreground">Fetching GPS data</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="h-full w-full bg-muted rounded-lg flex items-center justify-center">
+        <div className="text-red-600">{error}</div>
+      </div>
+    )
+  }
+
+  // Center map on first device if available
+  const mapCenter: [number, number] = devices.length > 0 
+    ? devices[0].position 
+    : [32.22636, -7.95145]
+
   return (
     <MapContainer
-      center={[20, 0]}
-      zoom={2}
+      center={mapCenter}
+      zoom={12}
       preferCanvas={true}
       className="h-full w-full rounded-lg border"
       style={{ height: "100%", width: "100%" }}
@@ -199,15 +221,23 @@ export function LeafletMap() {
         return null
       })}
 
-      {/* Render device markers */}
+      {/* Render real device markers */}
       {devices.map((device) => (
         <Marker key={device.id} position={device.position}>
           <Popup>
-            <div className="text-sm">
-              <div className="font-semibold">{device.name}</div>
+            <div className="text-sm space-y-1">
+              <div className="font-semibold text-base">{device.name}</div>
               <div className="text-muted-foreground">ID: {device.id}</div>
-              <div className={device.status === "active" ? "text-green-600" : "text-gray-500"}>
-                Status: {device.status}
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Battery:</span>
+                <span className={device.battery.includes("15") ? "text-red-600 font-semibold" : "text-green-600"}>
+                  {device.battery}
+                </span>
+              </div>
+              <div className="text-muted-foreground">Altitude: {device.altitude}m</div>
+              <div className="text-muted-foreground">Accuracy: {device.accuracy}m</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {new Date(device.date).toLocaleString()}
               </div>
             </div>
           </Popup>
