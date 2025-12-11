@@ -1,10 +1,14 @@
-'use client'
+"use client"
+
 import dynamic from "next/dynamic"
 
-const LeafletMap = dynamic(() => import("../../components/map/leaflet-map").then((m) => m.LeafletMap), {
-  ssr: false,
-  loading: () => <div className="h-full w-full bg-muted animate-pulse rounded-lg" />,
-})
+const LeafletMap = dynamic(
+  () => import("../../components/map/leaflet-map").then((m) => m.LeafletMap),
+  {
+    ssr: false,
+    loading: () => <div className="h-full w-full bg-muted animate-pulse rounded-lg" />,
+  }
+)
 
 export default function MapPage() {
   return (

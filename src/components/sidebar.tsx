@@ -11,7 +11,6 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 px-2">
-        <SidebarItem href="/dashboard" icon={MapPin} label="Dashboard" />
         <SidebarItem href="/map" icon={Map} label="Map" />
         <SidebarItem href="/zones" icon={Square} label="Zones" />
         <SidebarItem href="/devices" icon={HardDrive} label="Devices" />
