@@ -68,8 +68,9 @@ export default function ZonesPage() {
 
   return (
     <div className="flex h-full w-full gap-6 p-6">
-      
+      {/* Left side: Map */}
       <div className="flex-1 flex flex-col gap-4">
+        {/* Mode selector */}
         <div className="flex items-center gap-4 p-4 bg-card border rounded-lg">
           <span className="font-semibold">Zone Type:</span>
           <div className="flex gap-2">
@@ -189,7 +190,9 @@ export default function ZonesPage() {
                   </div>
                   <div className="text-xs text-muted-foreground space-y-1">
                     <div>Position: {zone.position[0].toFixed(5)}, {zone.position[1].toFixed(5)}</div>
-                    <div className="italic">Wind calculation pending</div>
+                    <div className={zone.alertZone ? "text-green-600 font-medium" : "text-muted-foreground italic"}>
+                      {zone.alertZone ? '✓ Auto-calculated from weather' : 'Loading weather data...'}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -210,7 +213,7 @@ export default function ZonesPage() {
             <div>
               <div className="font-medium mb-1">💨 Gas Source</div>
               <p className="text-xs text-muted-foreground">
-                Click to mark gas leak point. Zones calculated from wind direction/speed.
+                Click to mark gas leak point. Zones are automatically calculated from real-time wind data.
               </p>
             </div>
           </div>

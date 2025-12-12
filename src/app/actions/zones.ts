@@ -2,6 +2,8 @@
 
 import { supabase } from '@/lib/supabase'
 import { Zone, MachineZone, GasSourcePoint } from '@/components/zones/zones-map'
+import { fetchWeather } from './weather'
+import { calculateGasRiskZones } from '@/lib/gas-zone-calculator'
 
 export async function saveZone(zone: Omit<Zone, 'id' | 'createdAt'>) {
   try {
@@ -87,9 +89,9 @@ export async function fetchZones(): Promise<Zone[]> {
 
     if (error) throw error
 
-    console.log('Raw zones from database:', data)
+    const zones: Zone[] = []
 
-    const zones: Zone[] = data.map((row: any) => {
+    for (const row of data) {
       if (row.source === 'machine') {
         const machineZone: MachineZone = {
           id: row.id,
@@ -103,34 +105,30 @@ export async function fetchZones(): Promise<Zone[]> {
 
         if (row.shape === 'polygon') {
           if (row.danger_zone_geometry) {
-            const coords = parsePostGISPolygon(row.danger_zone_geometry)
-            console.log('Parsed danger polygon:', coords)
-            machineZone.dangerZone.coordinates = coords
+            const coords = parsePostGISGeometry(row.danger_zone_geometry)
+            machineZone.dangerZone.coordinates = coords as [number, number][]
           }
           if (row.alert_zone_geometry) {
-            const coords = parsePostGISPolygon(row.alert_zone_geometry)
-            console.log('Parsed alert polygon:', coords)
-            machineZone.alertZone.coordinates = coords
+            const coords = parsePostGISGeometry(row.alert_zone_geometry)
+            machineZone.alertZone.coordinates = coords as [number, number][]
           }
         } else {
           if (row.danger_zone_center) {
-            const point = parsePostGISPoint(row.danger_zone_center)
-            console.log('Parsed danger circle center:', point)
-            machineZone.dangerZone.center = point
+            const point = parsePostGISGeometry(row.danger_zone_center)
+            machineZone.dangerZone.center = point as [number, number]
             machineZone.dangerZone.radius = row.danger_zone_radius
           }
           if (row.alert_zone_center) {
-            const point = parsePostGISPoint(row.alert_zone_center)
-            console.log('Parsed alert circle center:', point)
-            machineZone.alertZone.center = point
+            const point = parsePostGISGeometry(row.alert_zone_center)
+            machineZone.alertZone.center = point as [number, number]
             machineZone.alertZone.radius = row.alert_zone_radius
           }
         }
 
-        return machineZone
+        zones.push(machineZone)
       } else {
-        const position = parsePostGISPoint(row.gas_source_position)
-        console.log('Parsed gas source position:', position)
+        // Gas source - calculate zones in real-time
+        const position = parsePostGISGeometry(row.gas_source_position) as [number, number]
         
         const gasZone: GasSourcePoint = {
           id: row.id,
@@ -140,22 +138,39 @@ export async function fetchZones(): Promise<Zone[]> {
           createdAt: row.created_at,
         }
 
-        if (row.gas_danger_zone) {
-          gasZone.dangerZone = {
-            coordinates: parsePostGISPolygon(row.gas_danger_zone),
+        // Fetch weather and calculate zones automatically
+        try {
+          const [lat, lng] = position
+          const weather = await fetchWeather(lat, lng)
+          
+          if (!weather.error && weather.windSpeed > 0) {
+            const calculatedZones = calculateGasRiskZones(
+              lat,
+              lng,
+              weather.windSpeed,
+              weather.windDirection
+            )
+            
+            // Add calculated zones to gasZone
+            gasZone.dangerZoneCircle = {
+              center: calculatedZones.dangerZone.center,
+              radius: calculatedZones.dangerZone.radius,
+            }
+            
+            gasZone.alertZone = {
+              coordinates: calculatedZones.alertZone.coordinates,
+            }
+            
+            console.log(`✓ Calculated zones for ${gasZone.name}: Wind ${weather.windSpeed.toFixed(1)}m/s @ ${weather.windDirection}°`)
           }
-        }
-        if (row.gas_alert_zone) {
-          gasZone.alertZone = {
-            coordinates: parsePostGISPolygon(row.gas_alert_zone),
-          }
+        } catch (err) {
+          console.error(`Failed to calculate zones for gas source ${row.id}:`, err)
         }
 
-        return gasZone
+        zones.push(gasZone)
       }
-    })
+    }
 
-    console.log('Parsed zones:', zones)
     return zones
   } catch (error) {
     console.error('Error fetching zones:', error)
@@ -178,46 +193,40 @@ export async function deleteZone(zoneId: string) {
   }
 }
 
-// Helper function to parse PostGIS Point geometry
-function parsePostGISPoint(geom: any): [number, number] {
-  if (!geom) return [0, 0]
+// Unified helper function to parse PostGIS geometries
+function parsePostGISGeometry(geom: any): [number, number][] | [number, number] {
+  if (!geom) return []
   
-  // Handle GeoJSON format (what Supabase returns)
-  if (typeof geom === 'object' && geom.type === 'Point') {
-    return [geom.coordinates[1], geom.coordinates[0]]
-  }
-  
-  // Fallback to WKT string parsing
-  if (typeof geom === 'string') {
-    const pointMatch = geom.match(/POINT\(([^ ]+) ([^ ]+)\)/)
-    if (pointMatch) {
-      return [parseFloat(pointMatch[2]), parseFloat(pointMatch[1])]
+  // Handle GeoJSON format (what Supabase actually returns)
+  if (typeof geom === 'object' && geom.type) {
+    if (geom.type === 'Point') {
+      // Point: { type: 'Point', coordinates: [lng, lat] }
+      return [geom.coordinates[1], geom.coordinates[0]] as [number, number]
+    } else if (geom.type === 'Polygon') {
+      // Polygon: { type: 'Polygon', coordinates: [[[lng, lat], ...]] }
+      const coords = geom.coordinates[0].map((coord: number[]) => 
+        [coord[1], coord[0]] as [number, number]
+      )
+      return coords.slice(0, -1) // Remove duplicate closing point
     }
   }
   
-  return [0, 0]
-}
-
-function parsePostGISPolygon(geom: any): [number, number][] {
-  if (!geom) return []
-  
-  // Handle GeoJSON format (what Supabase returns)
-  if (typeof geom === 'object' && geom.type === 'Polygon') {
-    const coords = geom.coordinates[0].map((coord: number[]) => 
-      [coord[1], coord[0]] as [number, number]
-    )
-    return coords.slice(0, -1) // Remove duplicate closing point
-  }
-  
   // Fallback to WKT string parsing
   if (typeof geom === 'string') {
+    // Parse POINT
+    const pointMatch = geom.match(/POINT\(([^ ]+) ([^ ]+)\)/)
+    if (pointMatch) {
+      return [parseFloat(pointMatch[2]), parseFloat(pointMatch[1])] as [number, number]
+    }
+    
+    // Parse POLYGON
     const polygonMatch = geom.match(/POLYGON\(\(([^)]+)\)\)/)
     if (polygonMatch) {
       const coords = polygonMatch[1].split(',').map(pair => {
         const [lng, lat] = pair.trim().split(' ')
         return [parseFloat(lat), parseFloat(lng)] as [number, number]
       })
-      return coords.slice(0, -1)
+      return coords.slice(0, -1) // Remove duplicate closing point
     }
   }
   

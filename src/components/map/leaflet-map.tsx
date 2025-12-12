@@ -7,7 +7,6 @@ import "leaflet/dist/leaflet.css"
 import { fetchDevices } from "@/app/actions/devices"
 import { Zone, MachineZone, GasSourcePoint } from "@/components/zones/zones-map"
 
-
 delete (L.Icon.Default.prototype as any)._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -229,17 +228,22 @@ export function LeafletMap({ zones }: LeafletMapProps) {
                   <div className="text-sm space-y-1">
                     <div className="font-semibold text-base">{gasZone.name}</div>
                     <div className="text-muted-foreground">💨 Gas Source Point</div>
-                    <div className="text-xs text-muted-foreground">
-                      Wind-based zones will be calculated
-                    </div>
+                    {gasZone.dangerZoneCircle ? (
+                      <div className="text-green-600 text-xs font-medium">✓ Wind zones calculated</div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">
+                        Wind-based zones pending
+                      </div>
+                    )}
                   </div>
                 </Popup>
               </Marker>
 
-              {/* Wind-calculated danger zone (if exists) */}
-              {gasZone.dangerZone && (
-                <Polygon
-                  positions={gasZone.dangerZone.coordinates}
+              {/* Wind-calculated danger zone (circle) */}
+              {gasZone.dangerZoneCircle && (
+                <Circle
+                  center={gasZone.dangerZoneCircle.center}
+                  radius={gasZone.dangerZoneCircle.radius}
                   pathOptions={{
                     color: "#dc2626",
                     fillColor: "#dc2626",
@@ -251,14 +255,17 @@ export function LeafletMap({ zones }: LeafletMapProps) {
                     <div className="text-sm space-y-1">
                       <div className="font-semibold text-base">{gasZone.name}</div>
                       <div className="text-red-600 font-semibold">💨 Gas Danger Zone</div>
+                      <div className="text-muted-foreground">
+                        Radius: {Math.round(gasZone.dangerZoneCircle.radius)}m
+                      </div>
                       <div className="text-xs text-muted-foreground">Wind-calculated</div>
                     </div>
                   </Popup>
-                </Polygon>
+                </Circle>
               )}
 
-              {/* Wind-calculated alert zone (if exists) */}
-              {gasZone.alertZone && (
+              {/* Wind-calculated alert zone (plume polygon) */}
+              {gasZone.alertZone && gasZone.alertZone.coordinates && (
                 <Polygon
                   positions={gasZone.alertZone.coordinates}
                   pathOptions={{
@@ -272,7 +279,7 @@ export function LeafletMap({ zones }: LeafletMapProps) {
                     <div className="text-sm space-y-1">
                       <div className="font-semibold text-base">{gasZone.name}</div>
                       <div className="text-orange-600 font-semibold">💨 Gas Alert Zone</div>
-                      <div className="text-xs text-muted-foreground">Wind-calculated</div>
+                      <div className="text-xs text-muted-foreground">Wind-driven plume (8km)</div>
                     </div>
                   </Popup>
                 </Polygon>
