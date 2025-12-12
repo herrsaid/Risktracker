@@ -198,7 +198,6 @@ function parsePostGISPoint(geom: any): [number, number] {
   return [0, 0]
 }
 
-// Helper function to parse PostGIS Polygon geometry
 function parsePostGISPolygon(geom: any): [number, number][] {
   if (!geom) return []
   
