@@ -1,9 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import dynamic from "next/dynamic"
 import { Zone } from "@/components/zones/zones-map"
 import { Badge } from "@/components/ui/badge"
+import { saveZone, fetchZones, deleteZone } from "@/app/actions/zones"
+import { Button } from "@/components/ui/button"
 
 const ZonesMap = dynamic(
   () => import("@/components/zones/zones-map").then((m) => m.ZonesMap),
@@ -16,26 +18,58 @@ const ZonesMap = dynamic(
 export default function ZonesPage() {
   const [zones, setZones] = useState<Zone[]>([])
   const [currentMode, setCurrentMode] = useState<"machine" | "gas">("machine")
+  const [loading, setLoading] = useState(true)
 
-  const handleZoneCreated = (zone: Omit<Zone, "id" | "createdAt">) => {
-    const newZone: Zone = {
-      ...zone,
-      id: `zone-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    } as Zone
-    setZones([...zones, newZone])
-    console.log("Zone created:", newZone)
-    // Later: Save to database/API
+  useEffect(() => {
+    loadZones()
+  }, [])
+
+  const loadZones = async () => {
+    setLoading(true)
+    const fetchedZones = await fetchZones()
+    setZones(fetchedZones)
+    setLoading(false)
+  }
+
+  const handleZoneCreated = async (zone: Omit<Zone, "id" | "createdAt">) => {
+    const result = await saveZone(zone)
+    
+    if (result.error) {
+      alert('Failed to save zone: ' + result.error)
+      return
+    }
+
+    // Reload zones from database
+    await loadZones()
+    console.log("Zone saved to database:", result.data)
+  }
+
+  const handleDeleteZone = async (zoneId: string) => {
+    if (!confirm('Are you sure you want to delete this zone?')) return
+    
+    const result = await deleteZone(zoneId)
+    if (result.success) {
+      await loadZones()
+    } else {
+      alert('Failed to delete zone')
+    }
   }
 
   const machineZones = zones.filter(z => z.source === "machine")
   const gasZones = zones.filter(z => z.source === "gas")
 
+  if (loading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <div className="text-lg font-semibold">Loading zones...</div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full w-full gap-6 p-6">
-      {/* Left side: Map */}
+      
       <div className="flex-1 flex flex-col gap-4">
-        {/* Mode selector */}
         <div className="flex items-center gap-4 p-4 bg-card border rounded-lg">
           <span className="font-semibold">Zone Type:</span>
           <div className="flex gap-2">
@@ -60,6 +94,9 @@ export default function ZonesPage() {
               💨 Gas Source
             </button>
           </div>
+          <Button onClick={loadZones} variant="outline" className="ml-auto">
+            Refresh
+          </Button>
         </div>
 
         <ZonesMap
@@ -102,7 +139,17 @@ export default function ZonesPage() {
                   key={zone.id}
                   className="border rounded-lg p-3 hover:bg-muted/50 transition-colors"
                 >
-                  <div className="font-medium text-sm mb-1">{zone.name}</div>
+                  <div className="flex items-start justify-between mb-1">
+                    <span className="font-medium text-sm">{zone.name}</span>
+                    <Button
+                      onClick={() => handleDeleteZone(zone.id)}
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-red-600"
+                    >
+                      Delete
+                    </Button>
+                  </div>
                   <div className="text-xs text-muted-foreground space-y-1">
                     <div>Shape: {zone.shape}</div>
                     <div className="flex gap-2">
@@ -129,7 +176,17 @@ export default function ZonesPage() {
                   key={zone.id}
                   className="border rounded-lg p-3 hover:bg-muted/50 transition-colors"
                 >
-                  <div className="font-medium text-sm mb-1">{zone.name}</div>
+                  <div className="flex items-start justify-between mb-1">
+                    <span className="font-medium text-sm">{zone.name}</span>
+                    <Button
+                      onClick={() => handleDeleteZone(zone.id)}
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-red-600"
+                    >
+                      Delete
+                    </Button>
+                  </div>
                   <div className="text-xs text-muted-foreground space-y-1">
                     <div>Position: {zone.position[0].toFixed(5)}, {zone.position[1].toFixed(5)}</div>
                     <div className="italic">Wind calculation pending</div>

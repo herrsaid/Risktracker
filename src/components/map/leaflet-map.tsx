@@ -1,10 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { MapContainer, TileLayer, Marker, Popup, Polygon, Circle, useMapEvents } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup, Polygon, Circle } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
-import { fetchDevices } from "../../app/actions/devices"
+import { fetchDevices } from "@/app/actions/devices"
+import { Zone, MachineZone, GasSourcePoint } from "@/components/zones/zones-map"
 
 
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -24,30 +25,12 @@ type DeviceData = {
   accuracy: number
 }
 
-type ZoneData = {
-  id: string
-  name: string
-  type: "danger" | "alert"
-  shape: "polygon" | "circle"
-  coordinates?: [number, number][]
-  center?: [number, number]
-  radius?: number
+type LeafletMapProps = {
+  zones: Zone[]
 }
 
-const DUMMY_ZONES: ZoneData[] = []
-
-function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click: (e) => {
-      onMapClick(e.latlng.lat, e.latlng.lng)
-    },
-  })
-  return null
-}
-
-export function LeafletMap() {
+export function LeafletMap({ zones }: LeafletMapProps) {
   const [devices, setDevices] = useState<DeviceData[]>([])
-  const [zones, setZones] = useState<ZoneData[]>([])
   const [isMounted, setIsMounted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -79,8 +62,6 @@ export function LeafletMap() {
           console.log("Devices loaded:", formattedDevices)
         }
         
-        // Load dummy zones
-        setZones(DUMMY_ZONES)
         setLoading(false)
       } catch (err) {
         console.error("Error loading devices:", err)
@@ -96,10 +77,6 @@ export function LeafletMap() {
     return () => clearInterval(interval)
   }, [])
 
-  const handleMapClick = (lat: number, lng: number) => {
-    console.log("Map clicked at:", lat, lng)
-  }
-
   if (!isMounted) {
     return <div className="h-full w-full bg-muted rounded-lg" />
   }
@@ -108,8 +85,8 @@ export function LeafletMap() {
     return (
       <div className="h-full w-full bg-muted rounded-lg flex items-center justify-center">
         <div className="text-center">
-          <div className="text-lg font-semibold mb-2">Loading devices...</div>
-          <div className="text-sm text-muted-foreground">Fetching GPS data</div>
+          <div className="text-lg font-semibold mb-2">Loading map data...</div>
+          <div className="text-sm text-muted-foreground">Fetching devices and zones</div>
         </div>
       </div>
     )
@@ -146,60 +123,168 @@ export function LeafletMap() {
         updateWhenIdle={false}
         updateWhenZooming={false}
       />
-      <MapClickHandler onMapClick={handleMapClick} />
 
-      {/* Render zones */}
+      {/* Render zones from database */}
       {zones.map((zone) => {
-        if (zone.shape === "polygon" && zone.coordinates) {
+        if (zone.source === "machine") {
+          const machineZone = zone as MachineZone
+          
           return (
-            <Polygon
-              key={zone.id}
-              positions={zone.coordinates}
-              pathOptions={{
-                color: zone.type === "danger" ? "#dc2626" : "#f59e0b",
-                fillColor: zone.type === "danger" ? "#dc2626" : "#f59e0b",
-                fillOpacity: 0.3,
-                weight: 2,
-              }}
-            >
-              <Popup>
-                <div className="text-sm">
-                  <div className="font-semibold">{zone.name}</div>
-                  <div className="text-muted-foreground">Type: {zone.type}</div>
-                </div>
-              </Popup>
-            </Polygon>
+            <div key={zone.id}>
+              {/* Danger zone */}
+              {machineZone.shape === "polygon" && machineZone.dangerZone.coordinates && (
+                <Polygon
+                  positions={machineZone.dangerZone.coordinates}
+                  pathOptions={{
+                    color: "#dc2626",
+                    fillColor: "#dc2626",
+                    fillOpacity: 0.3,
+                    weight: 2,
+                  }}
+                >
+                  <Popup>
+                    <div className="text-sm space-y-1">
+                      <div className="font-semibold text-base">{machineZone.name}</div>
+                      <div className="text-red-600 font-semibold">⚠️ Danger Zone - No Entry</div>
+                      <div className="text-xs text-muted-foreground">Machine area</div>
+                    </div>
+                  </Popup>
+                </Polygon>
+              )}
+              
+              {machineZone.shape === "circle" && machineZone.dangerZone.center && machineZone.dangerZone.radius && (
+                <Circle
+                  center={machineZone.dangerZone.center}
+                  radius={machineZone.dangerZone.radius}
+                  pathOptions={{
+                    color: "#dc2626",
+                    fillColor: "#dc2626",
+                    fillOpacity: 0.3,
+                    weight: 2,
+                  }}
+                >
+                  <Popup>
+                    <div className="text-sm space-y-1">
+                      <div className="font-semibold text-base">{machineZone.name}</div>
+                      <div className="text-red-600 font-semibold">⚠️ Danger Zone - No Entry</div>
+                      <div className="text-muted-foreground">Radius: {Math.round(machineZone.dangerZone.radius)}m</div>
+                    </div>
+                  </Popup>
+                </Circle>
+              )}
+
+              {/* Alert zone */}
+              {machineZone.shape === "polygon" && machineZone.alertZone.coordinates && (
+                <Polygon
+                  positions={machineZone.alertZone.coordinates}
+                  pathOptions={{
+                    color: "#f59e0b",
+                    fillColor: "#f59e0b",
+                    fillOpacity: 0.2,
+                    weight: 2,
+                  }}
+                >
+                  <Popup>
+                    <div className="text-sm space-y-1">
+                      <div className="font-semibold text-base">{machineZone.name}</div>
+                      <div className="text-orange-600 font-semibold">⚠️ Alert Zone - Caution</div>
+                      <div className="text-xs text-muted-foreground">Surrounding area</div>
+                    </div>
+                  </Popup>
+                </Polygon>
+              )}
+              
+              {machineZone.shape === "circle" && machineZone.alertZone.center && machineZone.alertZone.radius && (
+                <Circle
+                  center={machineZone.alertZone.center}
+                  radius={machineZone.alertZone.radius}
+                  pathOptions={{
+                    color: "#f59e0b",
+                    fillColor: "#f59e0b",
+                    fillOpacity: 0.2,
+                    weight: 2,
+                  }}
+                >
+                  <Popup>
+                    <div className="text-sm space-y-1">
+                      <div className="font-semibold text-base">{machineZone.name}</div>
+                      <div className="text-orange-600 font-semibold">⚠️ Alert Zone - Caution</div>
+                      <div className="text-muted-foreground">Radius: {Math.round(machineZone.alertZone.radius)}m</div>
+                    </div>
+                  </Popup>
+                </Circle>
+              )}
+            </div>
           )
         }
 
-        if (zone.shape === "circle" && zone.center && zone.radius) {
+        if (zone.source === "gas") {
+          const gasZone = zone as GasSourcePoint
+          
           return (
-            <Circle
-              key={zone.id}
-              center={zone.center}
-              radius={zone.radius}
-              pathOptions={{
-                color: zone.type === "danger" ? "#dc2626" : "#f59e0b",
-                fillColor: zone.type === "danger" ? "#dc2626" : "#f59e0b",
-                fillOpacity: 0.3,
-                weight: 2,
-              }}
-            >
-              <Popup>
-                <div className="text-sm">
-                  <div className="font-semibold">{zone.name}</div>
-                  <div className="text-muted-foreground">Type: {zone.type}</div>
-                  <div className="text-muted-foreground">Radius: {zone.radius}m</div>
-                </div>
-              </Popup>
-            </Circle>
+            <div key={zone.id}>
+              {/* Gas source marker */}
+              <Marker position={gasZone.position}>
+                <Popup>
+                  <div className="text-sm space-y-1">
+                    <div className="font-semibold text-base">{gasZone.name}</div>
+                    <div className="text-muted-foreground">💨 Gas Source Point</div>
+                    <div className="text-xs text-muted-foreground">
+                      Wind-based zones will be calculated
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+
+              {/* Wind-calculated danger zone (if exists) */}
+              {gasZone.dangerZone && (
+                <Polygon
+                  positions={gasZone.dangerZone.coordinates}
+                  pathOptions={{
+                    color: "#dc2626",
+                    fillColor: "#dc2626",
+                    fillOpacity: 0.3,
+                    weight: 2,
+                  }}
+                >
+                  <Popup>
+                    <div className="text-sm space-y-1">
+                      <div className="font-semibold text-base">{gasZone.name}</div>
+                      <div className="text-red-600 font-semibold">💨 Gas Danger Zone</div>
+                      <div className="text-xs text-muted-foreground">Wind-calculated</div>
+                    </div>
+                  </Popup>
+                </Polygon>
+              )}
+
+              {/* Wind-calculated alert zone (if exists) */}
+              {gasZone.alertZone && (
+                <Polygon
+                  positions={gasZone.alertZone.coordinates}
+                  pathOptions={{
+                    color: "#f59e0b",
+                    fillColor: "#f59e0b",
+                    fillOpacity: 0.2,
+                    weight: 2,
+                  }}
+                >
+                  <Popup>
+                    <div className="text-sm space-y-1">
+                      <div className="font-semibold text-base">{gasZone.name}</div>
+                      <div className="text-orange-600 font-semibold">💨 Gas Alert Zone</div>
+                      <div className="text-xs text-muted-foreground">Wind-calculated</div>
+                    </div>
+                  </Popup>
+                </Polygon>
+              )}
+            </div>
           )
         }
 
         return null
       })}
 
-      {/* Render real device markers */}
+      {/* Render real device markers on top of zones */}
       {devices.map((device) => (
         <Marker key={device.id} position={device.position}>
           <Popup>
@@ -208,7 +293,7 @@ export function LeafletMap() {
               <div className="text-muted-foreground">ID: {device.id}</div>
               <div className="flex items-center gap-1">
                 <span className="text-muted-foreground">Battery:</span>
-                <span className={device.battery.includes("15") ? "text-red-600 font-semibold" : "text-green-600"}>
+                <span className={device.battery.includes("15") || device.battery.includes("30") ? "text-red-600 font-semibold" : "text-green-600"}>
                   {device.battery}
                 </span>
               </div>
