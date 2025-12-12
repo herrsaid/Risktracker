@@ -34,29 +34,7 @@ type ZoneData = {
   radius?: number
 }
 
-// Dummy zone data - will be replaced with API later
-const DUMMY_ZONES: ZoneData[] = [
-  {
-    id: "zone1",
-    name: "Marrakech Alert Zone",
-    type: "alert",
-    shape: "circle",
-    center: [32.22636, -7.95145],
-    radius: 5000,
-  },
-  {
-    id: "zone2",
-    name: "City Center Danger Zone",
-    type: "danger",
-    shape: "polygon",
-    coordinates: [
-      [32.23, -7.96],
-      [32.22, -7.95],
-      [32.21, -7.95],
-      [32.22, -7.94],
-    ],
-  },
-]
+const DUMMY_ZONES: ZoneData[] = []
 
 function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
   useMapEvents({
