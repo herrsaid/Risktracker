@@ -440,12 +440,7 @@ export function LeafletMap({ zones, onDangerStatusChange }: LeafletMapProps) {
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">Battery:</span>
                   <span
-                    className={
-                      device.battery.includes("15") ||
-                      device.battery.includes("30")
-                        ? "text-red-600 font-semibold"
-                        : "text-green-600"
-                    }
+                    className="text-black-600"
                   >
                     {device.battery}
                   </span>

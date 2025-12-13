@@ -35,7 +35,7 @@ export async function fetchDevices() {
           device_id: t.DeviceID,
           name: t.DeviceName,
           location: `SRID=4326;POINT(${t.Longitude} ${t.Latitude})`,
-          battery: t.Battery ?? null,
+          battery: 100,
           altitude_m: t["Altitude(m)"] ?? null,
           accuracy_m: t.Accuracy ?? null,
           last_seen: t.Date

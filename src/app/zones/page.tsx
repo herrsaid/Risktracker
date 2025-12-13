@@ -39,7 +39,6 @@ export default function ZonesPage() {
       return
     }
 
-    // Reload zones from database
     await loadZones()
     console.log("Zone saved to database:", result.data)
   }
@@ -67,13 +66,13 @@ export default function ZonesPage() {
   }
 
   return (
-    <div className="flex h-full w-full gap-6 p-6">
+    <div className="flex h-full w-full flex-col gap-4 p-4 md:flex-row md:gap-6 md:p-6">
       {/* Left side: Map */}
       <div className="flex-1 flex flex-col gap-4">
         {/* Mode selector */}
-        <div className="flex items-center gap-4 p-4 bg-card border rounded-lg">
+        <div className="flex flex-col gap-3 p-4 bg-card border rounded-lg md:flex-row md:items-center md:gap-4">
           <span className="font-semibold">Zone Type:</span>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 md:flex-row md:gap-2">
             <button
               onClick={() => setCurrentMode("machine")}
               className={`px-4 py-2 rounded-md font-medium transition-colors ${
@@ -95,7 +94,7 @@ export default function ZonesPage() {
               💨 Gas Source
             </button>
           </div>
-          <Button onClick={loadZones} variant="outline" className="ml-auto">
+          <Button onClick={loadZones} variant="outline" className="mt-2 md:ml-auto md:mt-0">
             Refresh
           </Button>
         </div>
@@ -108,7 +107,7 @@ export default function ZonesPage() {
       </div>
 
       {/* Right side: Zones list */}
-      <div className="w-80 flex flex-col gap-4 overflow-y-auto">
+      <div className="w-full md:w-80 flex flex-col gap-4 overflow-y-auto max-h-64 md:max-h-none">
         <div className="bg-card border rounded-lg p-4">
           <h2 className="text-xl font-semibold mb-2">Zones Summary</h2>
           <div className="space-y-2 text-sm">
@@ -134,7 +133,7 @@ export default function ZonesPage() {
               🏭 Machine Zones
               <Badge>{machineZones.length}</Badge>
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-32 overflow-y-auto">
               {machineZones.map((zone) => (
                 <div
                   key={zone.id}
@@ -171,7 +170,7 @@ export default function ZonesPage() {
               💨 Gas Sources
               <Badge>{gasZones.length}</Badge>
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-32 overflow-y-auto">
               {gasZones.map((zone) => (
                 <div
                   key={zone.id}
