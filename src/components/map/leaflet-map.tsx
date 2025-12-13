@@ -153,7 +153,7 @@ export function LeafletMap({ zones, onDangerStatusChange }: LeafletMapProps) {
     // Auto-refresh every 30 seconds
     const interval = setInterval(loadDevices, 30000)
     return () => clearInterval(interval)
-  }, [zones, onDangerStatusChange])
+  }, [zones])
 
   if (!isMounted) {
     return <div className="h-full w-full bg-muted rounded-lg" />
