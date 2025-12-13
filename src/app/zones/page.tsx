@@ -66,13 +66,13 @@ export default function ZonesPage() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col gap-4 p-4 md:flex-row md:gap-6 md:p-6">
+    <div className="flex h-full w-full gap-6 p-6 flex-col md:flex-row overflow-auto md:overflow-hidden">
       {/* Left side: Map */}
-      <div className="flex-1 flex flex-col gap-4 min-h-0">
+      <div className="flex-1 flex flex-col gap-4 min-h-[500px] md:min-h-0">
         {/* Mode selector */}
-        <div className="flex flex-col gap-3 p-4 bg-card border rounded-lg md:flex-row md:items-center md:gap-4">
+        <div className="flex items-center gap-4 p-4 bg-card border rounded-lg flex-wrap">
           <span className="font-semibold">Zone Type:</span>
-          <div className="flex flex-col gap-2 md:flex-row md:gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setCurrentMode("machine")}
               className={`px-4 py-2 rounded-md font-medium transition-colors ${
@@ -94,13 +94,12 @@ export default function ZonesPage() {
               💨 Gas Source
             </button>
           </div>
-          <Button onClick={loadZones} variant="outline" className="mt-2 md:ml-auto md:mt-0">
+          <Button onClick={loadZones} variant="outline" className="ml-auto">
             Refresh
           </Button>
         </div>
 
-        {/* Map container with fixed height on mobile, flex on desktop */}
-        <div className="h-[400px] md:flex-1 md:min-h-0">
+        <div className="flex-1 min-h-[400px]">
           <ZonesMap
             zones={zones}
             onZoneCreated={handleZoneCreated}
@@ -110,7 +109,7 @@ export default function ZonesPage() {
       </div>
 
       {/* Right side: Zones list */}
-      <div className="w-full md:w-80 flex flex-col gap-4 overflow-y-auto max-h-96 md:max-h-none">
+      <div className="w-full md:w-80 flex flex-col gap-4 md:overflow-y-auto">
         <div className="bg-card border rounded-lg p-4">
           <h2 className="text-xl font-semibold mb-2">Zones Summary</h2>
           <div className="space-y-2 text-sm">
