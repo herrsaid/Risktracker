@@ -60,7 +60,7 @@ export default function MapPage() {
         <button
           type="button"
           onClick={() => setShowStatusPanel((v) => !v)}
-          className="text-red-600 font-semibold animate-pulse underline-offset-2 hover:underline"
+          className="text-red-600 font-semibold animate-pulse underline-offset-2 hover:underline text-sm md:text-base"
         >
           ⚠️ DANGER ZONE ACTIVE ({dangerDevices.length})
         </button>
@@ -71,13 +71,13 @@ export default function MapPage() {
         <button
           type="button"
           onClick={() => setShowStatusPanel((v) => !v)}
-          className="text-orange-500 font-semibold animate-pulse underline-offset-2 hover:underline"
+          className="text-orange-500 font-semibold animate-pulse underline-offset-2 hover:underline text-sm md:text-base"
         >
           ⚠️ ALERT ZONE ACTIVE ({alertDevices.length})
         </button>
       )
     }
-    return <span className="text-muted-foreground">All clear</span>
+    return <span className="text-muted-foreground text-sm md:text-base">All clear</span>
   }
 
   const renderStatusPanel = () => {
@@ -89,9 +89,9 @@ export default function MapPage() {
       : "Devices inside alert zones"
 
     return (
-      <div className="absolute right-6 top-14 z-[1000] w-80 rounded-lg border bg-card shadow-lg">
+      <div className="absolute right-2 top-14 z-[1000] w-full max-w-xs rounded-lg border bg-card shadow-lg md:right-6 md:w-80">
         <div className="flex items-center justify-between border-b px-4 py-2">
-          <span className="text-sm font-semibold">{title}</span>
+          <span className="text-xs md:text-sm font-semibold">{title}</span>
           <button
             type="button"
             className="text-xs text-muted-foreground hover:text-foreground"
@@ -100,7 +100,7 @@ export default function MapPage() {
             Close
           </button>
         </div>
-        <div className="max-h-64 overflow-y-auto px-4 py-3 space-y-2 text-sm">
+        <div className="max-h-64 overflow-y-auto px-4 py-3 space-y-2 text-xs md:text-sm">
           {list.length === 0 && (
             <div className="text-muted-foreground text-xs">
               No devices currently in this zone.
@@ -109,8 +109,8 @@ export default function MapPage() {
           {list.map((d) => (
             <div key={d.id} className="border rounded-md px-2 py-1">
               <div className="font-medium text-xs">{d.name || d.id}</div>
-              <div className="text-[11px] text-muted-foreground">ID: {d.id}</div>
-              <div className="text-[11px] text-muted-foreground">
+              <div className="text-xs text-muted-foreground">ID: {d.id}</div>
+              <div className="text-xs text-muted-foreground">
                 Position: {d.position[0].toFixed(5)}, {d.position[1].toFixed(5)}
               </div>
             </div>
@@ -123,9 +123,9 @@ export default function MapPage() {
   if (loadingZones) {
     return (
       <div className="flex h-full w-full flex-col">
-        <header className="flex items-center justify-between border-b px-6 py-3">
-          <h1 className="text-xl font-semibold">Map</h1>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <header className="flex items-center justify-between border-b px-4 py-2 md:px-6 md:py-3">
+          <h1 className="text-lg font-semibold md:text-xl">Map</h1>
+          <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
             <span>Devices & Zones</span>
             <span>Loading zones…</span>
           </div>
@@ -140,9 +140,9 @@ export default function MapPage() {
   if (zonesError) {
     return (
       <div className="flex h-full w-full flex-col">
-        <header className="flex items-center justify-between border-b px-6 py-3">
-          <h1 className="text-xl font-semibold">Map</h1>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <header className="flex items-center justify-between border-b px-4 py-2 md:px-6 md:py-3">
+          <h1 className="text-lg font-semibold md:text-xl">Map</h1>
+          <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
             <span>Devices & Zones</span>
           </div>
         </header>
@@ -155,9 +155,9 @@ export default function MapPage() {
 
   return (
     <div className="relative flex h-full w-full flex-col">
-      <header className="flex items-center justify-between border-b px-6 py-3">
-        <h1 className="text-xl font-semibold">Map</h1>
-        <div className="flex items-center gap-6 text-sm">
+      <header className="flex flex-wrap items-center justify-between border-b px-4 py-2 gap-2 md:px-6 md:py-3 md:flex-nowrap">
+        <h1 className="text-lg font-semibold md:text-xl">Map</h1>
+        <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
           <span className="text-muted-foreground">Devices & Zones</span>
           <span className="text-muted-foreground">
             {machineZonesCount} Machine Zones • {gasZonesCount} Gas Sources
@@ -168,7 +168,7 @@ export default function MapPage() {
 
       {renderStatusPanel()}
 
-      <section className="flex-1 min-h-0 px-4 pb-4 pt-2">
+      <section className="flex-1 min-h-0 px-2 pb-2 pt-1 md:px-4 md:pb-4 md:pt-2">
         <LeafletMap
           zones={zones}
           onDangerStatusChange={({
