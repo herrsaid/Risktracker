@@ -66,51 +66,48 @@ export default function ZonesPage() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col gap-4 p-4 md:flex-row md:gap-6 md:p-6">
-      {/* Left side: Map */}
-      <div className="flex-1 flex flex-col gap-4">
-        {/* Mode selector */}
-        <div className="flex flex-col gap-3 p-4 bg-card border rounded-lg md:flex-row md:items-center md:gap-4">
-          <span className="font-semibold">Zone Type:</span>
-          <div className="flex flex-col gap-2 md:flex-row md:gap-2">
-            <button
-              onClick={() => setCurrentMode("machine")}
-              className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                currentMode === "machine"
-                  ? "bg-blue-500 text-white"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              🏭 Machine Zone
-            </button>
-            <button
-              onClick={() => setCurrentMode("gas")}
-              className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                currentMode === "gas"
-                  ? "bg-purple-500 text-white"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              💨 Gas Source
-            </button>
-          </div>
-          <Button onClick={loadZones} variant="outline" className="mt-2 md:ml-auto md:mt-0">
-            Refresh
-          </Button>
+    <div className="flex flex-col gap-4 p-4">
+      {/* Mode selector */}
+      <div className="flex flex-col gap-3 p-4 bg-card border rounded-lg">
+        <span className="font-semibold">Zone Type:</span>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => setCurrentMode("machine")}
+            className={`px-4 py-2 rounded-md font-medium transition-colors ${
+              currentMode === "machine"
+                ? "bg-blue-500 text-white"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            🏭 Machine Zone
+          </button>
+          <button
+            onClick={() => setCurrentMode("gas")}
+            className={`px-4 py-2 rounded-md font-medium transition-colors ${
+              currentMode === "gas"
+                ? "bg-purple-500 text-white"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            💨 Gas Source
+          </button>
         </div>
-
-        {/* Map */}
-        <div className="flex-1 min-h-[300px] h-[calc(100vh-200px)]">
-          <ZonesMap
-            zones={zones}
-            onZoneCreated={handleZoneCreated}
-            currentMode={currentMode}
-          />
-        </div>
+        <Button onClick={loadZones} variant="outline" className="mt-2">
+          Refresh
+        </Button>
       </div>
 
-      {/* Right side: Zones list */}
-      <div className="w-full md:w-80 flex flex-col gap-4 overflow-y-auto max-h-64 md:max-h-none">
+      {/* Map */}
+      <div className="w-full h-[400px] bg-muted rounded-lg">
+        <ZonesMap
+          zones={zones}
+          onZoneCreated={handleZoneCreated}
+          currentMode={currentMode}
+        />
+      </div>
+
+      {/* Zones list */}
+      <div className="flex flex-col gap-4 mt-4">
         <div className="bg-card border rounded-lg p-4">
           <h2 className="text-xl font-semibold mb-2">Zones Summary</h2>
           <div className="space-y-2 text-sm">
