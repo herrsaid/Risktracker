@@ -99,11 +99,14 @@ export default function ZonesPage() {
           </Button>
         </div>
 
-        <ZonesMap
-          zones={zones}
-          onZoneCreated={handleZoneCreated}
-          currentMode={currentMode}
-        />
+        {/* Map */}
+        <div className="flex-1 min-h-[300px] h-[calc(100vh-200px)]">
+          <ZonesMap
+            zones={zones}
+            onZoneCreated={handleZoneCreated}
+            currentMode={currentMode}
+          />
+        </div>
       </div>
 
       {/* Right side: Zones list */}
