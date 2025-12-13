@@ -16,7 +16,6 @@ import { Badge } from "@/components/ui/badge"
 type Device = {
   DeviceID: string
   DeviceName: string
-  Platform?: string
   Edition?: string
   Group?: string
   Active?: string
@@ -46,11 +45,9 @@ export default function DevicesPage() {
         }
         
         if (data.Data && Array.isArray(data.Data)) {
-          // Transform and filter data to match Device type
           const transformedDevices: Device[] = data.Data.map((item: any) => ({
             DeviceID: item.DeviceID || '',
             DeviceName: item.DeviceName || '',
-            Platform: item.Platform || '',
             Edition: item.Edition || '',
             Group: item.Group || '',
             Active: item.Active || '0',
@@ -63,7 +60,7 @@ export default function DevicesPage() {
             "Altitude(m)": item["Altitude(m)"]?.toString(),
             Accuracy: item.Accuracy?.toString(),
             Date: item.Date
-          })).filter(device => device.DeviceID && device.DeviceName) // Filter out invalid devices
+          })).filter(device => device.DeviceID && device.DeviceName)
           
           setDevices(transformedDevices)
         }
@@ -78,7 +75,6 @@ export default function DevicesPage() {
 
     loadDevices()
     
-    // Auto-refresh every 60 seconds
     const interval = setInterval(loadDevices, 60000)
     return () => clearInterval(interval)
   }, [])
@@ -111,15 +107,15 @@ export default function DevicesPage() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col p-6">
+    <div className="flex h-full w-full flex-col p-4 md:p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Devices</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl font-bold mb-2 md:text-3xl">Devices</h1>
+        <p className="text-muted-foreground text-sm md:text-base">
           Manage and monitor all your tracking devices
         </p>
       </div>
 
-      <div className="flex-1 rounded-lg border bg-card">
+      <div className="flex-1 rounded-lg border bg-card overflow-x-auto">
         <Table>
           <TableCaption>
             Total devices: {devices.length} • Auto-refreshes every 60 seconds
@@ -128,7 +124,6 @@ export default function DevicesPage() {
             <TableRow>
               <TableHead>Device Name</TableHead>
               <TableHead>ID</TableHead>
-              <TableHead>Platform</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Tracker</TableHead>
               <TableHead>Battery</TableHead>
@@ -138,7 +133,7 @@ export default function DevicesPage() {
           <TableBody>
             {devices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   No devices found
                 </TableCell>
               </TableRow>
@@ -148,11 +143,6 @@ export default function DevicesPage() {
                   <TableCell className="font-medium">{device.DeviceName}</TableCell>
                   <TableCell className="text-muted-foreground font-mono text-xs">
                     {device.DeviceID}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {device.Platform || 'Unknown'}
-                    </Badge>
                   </TableCell>
                   <TableCell>
                     {device.Active === "1" ? (
