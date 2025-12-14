@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { MapContainer, TileLayer, Marker, Popup, Polygon, Circle } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup, Polygon, Circle, LayersControl } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import { fetchDevices } from "@/app/actions/devices"
@@ -328,14 +328,25 @@ export function LeafletMap({ zones, onDangerStatusChange }: LeafletMapProps) {
       zoomControl={true}
       scrollWheelZoom={true}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        maxZoom={19}
-        keepBuffer={2}
-        updateWhenIdle={false}
-        updateWhenZooming={false}
-      />
+      <LayersControl position="topright">
+        {/* Street Map - Default */}
+        <LayersControl.BaseLayer checked name="Street Map">
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maxZoom={19}
+          />
+        </LayersControl.BaseLayer>
+
+        {/* Satellite View */}
+        <LayersControl.BaseLayer name="Satellite">
+          <TileLayer
+            attribution='Tiles &copy; Esri'
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            maxZoom={19}
+          />
+        </LayersControl.BaseLayer>
+      </LayersControl>
 
       {/* Render zones */}
       {zones.map((zone) => {
