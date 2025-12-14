@@ -7,6 +7,7 @@ import "leaflet/dist/leaflet.css"
 import { fetchDevices } from "@/app/actions/devices"
 import { Zone, MachineZone, GasSourcePoint } from "@/components/zones/zones-map"
 import { distanceMeters, pointInPolygon } from "@/lib/geo"
+import { logDeviceHistory, logZoneViolation, updateViolationExit } from "@/app/actions/analytics"
 
 // Fix default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -26,6 +27,12 @@ export type DeviceData = {
   accuracy: number
   inDanger?: boolean
   inAlert?: boolean
+  violatingZone?: {
+    id: string
+    name: string
+    type: "danger" | "alert"
+    source: "machine" | "gas"
+  }
 }
 
 type LeafletMapProps = {
@@ -38,12 +45,30 @@ type LeafletMapProps = {
   }) => void
 }
 
+// Track active violations for each device
+const activeViolations = new Map<string, { violationId: string; zoneId: string; type: "danger" | "alert" }>()
+
 function computeDeviceZoneStatus(
   device: DeviceData,
   zones: Zone[]
-): { inDanger: boolean; inAlert: boolean } {
+): { 
+  inDanger: boolean
+  inAlert: boolean
+  violatingZone?: {
+    id: string
+    name: string
+    type: "danger" | "alert"
+    source: "machine" | "gas"
+  }
+} {
   let inDanger = false
   let inAlert = false
+  let violatingZone: {
+    id: string
+    name: string
+    type: "danger" | "alert"
+    source: "machine" | "gas"
+  } | undefined
 
   for (const zone of zones) {
     if (zone.source === "machine") {
@@ -52,18 +77,48 @@ function computeDeviceZoneStatus(
       if (z.shape === "polygon") {
         if (z.dangerZone.coordinates && pointInPolygon(device.position, z.dangerZone.coordinates)) {
           inDanger = true
+          violatingZone = {
+            id: zone.id,
+            name: zone.name,
+            type: "danger",
+            source: "machine",
+          }
+          break // Danger overrides everything
         }
-        if (z.alertZone.coordinates && pointInPolygon(device.position, z.alertZone.coordinates)) {
+        if (!inDanger && z.alertZone.coordinates && pointInPolygon(device.position, z.alertZone.coordinates)) {
           inAlert = true
+          violatingZone = {
+            id: zone.id,
+            name: zone.name,
+            type: "alert",
+            source: "machine",
+          }
         }
       } else if (z.shape === "circle") {
         if (z.dangerZone.center && z.dangerZone.radius) {
           const d = distanceMeters(device.position, z.dangerZone.center)
-          if (d <= z.dangerZone.radius) inDanger = true
+          if (d <= z.dangerZone.radius) {
+            inDanger = true
+            violatingZone = {
+              id: zone.id,
+              name: zone.name,
+              type: "danger",
+              source: "machine",
+            }
+            break
+          }
         }
-        if (z.alertZone.center && z.alertZone.radius) {
+        if (!inDanger && z.alertZone.center && z.alertZone.radius) {
           const d = distanceMeters(device.position, z.alertZone.center)
-          if (d <= z.alertZone.radius) inAlert = true
+          if (d <= z.alertZone.radius) {
+            inAlert = true
+            violatingZone = {
+              id: zone.id,
+              name: zone.name,
+              type: "alert",
+              source: "machine",
+            }
+          }
         }
       }
     }
@@ -74,12 +129,27 @@ function computeDeviceZoneStatus(
       // Gas danger circle
       if (gz.dangerZoneCircle) {
         const d = distanceMeters(device.position, gz.dangerZoneCircle.center)
-        if (d <= gz.dangerZoneCircle.radius) inDanger = true
+        if (d <= gz.dangerZoneCircle.radius) {
+          inDanger = true
+          violatingZone = {
+            id: zone.id,
+            name: zone.name,
+            type: "danger",
+            source: "gas",
+          }
+          break
+        }
       }
 
       // Gas alert plume polygon
-      if (gz.alertZone?.coordinates && pointInPolygon(device.position, gz.alertZone.coordinates)) {
+      if (!inDanger && gz.alertZone?.coordinates && pointInPolygon(device.position, gz.alertZone.coordinates)) {
         inAlert = true
+        violatingZone = {
+          id: zone.id,
+          name: zone.name,
+          type: "alert",
+          source: "gas",
+        }
       }
     }
   }
@@ -87,7 +157,56 @@ function computeDeviceZoneStatus(
   // Danger overrides alert
   if (inDanger) inAlert = false
 
-  return { inDanger, inAlert }
+  return { inDanger, inAlert, violatingZone }
+}
+
+async function trackZoneViolations(devices: DeviceData[]) {
+  for (const device of devices) {
+    const deviceKey = device.id
+    const activeViolation = activeViolations.get(deviceKey)
+
+    if (device.violatingZone) {
+      // Device is in a zone
+      if (!activeViolation || activeViolation.zoneId !== device.violatingZone.id) {
+        // New violation - log it
+        const result = await logZoneViolation({
+          device_id: device.id,
+          device_name: device.name,
+          zone_id: device.violatingZone.id,
+          zone_name: device.violatingZone.name,
+          zone_type: device.violatingZone.type,
+          zone_source: device.violatingZone.source,
+          latitude: device.position[0],
+          longitude: device.position[1],
+        })
+
+        if (result.success && result.data) {
+          // If there was a previous violation for a different zone, close it
+          if (activeViolation) {
+            await updateViolationExit(activeViolation.violationId)
+          }
+
+          // Store the new violation ID
+          activeViolations.set(deviceKey, {
+            violationId: result.data.id,
+            zoneId: device.violatingZone.id,
+            type: device.violatingZone.type,
+          })
+
+          console.log(`New violation logged: ${device.name} entered ${device.violatingZone.name}`)
+        }
+      }
+      // If already in violation for this zone, do nothing (ongoing violation)
+    } else {
+      // Device is not in any zone
+      if (activeViolation) {
+        // Device exited the zone - update the violation
+        await updateViolationExit(activeViolation.violationId)
+        activeViolations.delete(deviceKey)
+        console.log(`Violation ended: ${device.name} exited zone`)
+      }
+    }
+  }
 }
 
 export function LeafletMap({ zones, onDangerStatusChange }: LeafletMapProps) {
@@ -117,12 +236,30 @@ export function LeafletMap({ zones, onDangerStatusChange }: LeafletMapProps) {
             accuracy: device.Accuracy || 0,
           }))
 
+          // Compute zone status for each device
           const withStatus = baseDevices.map((d) => {
-            const { inDanger, inAlert } = computeDeviceZoneStatus(d, zones)
-            return { ...d, inDanger, inAlert }
+            const { inDanger, inAlert, violatingZone } = computeDeviceZoneStatus(d, zones)
+            return { ...d, inDanger, inAlert, violatingZone }
           })
 
           setDevices(withStatus)
+
+          // Log device history for analytics
+          await logDeviceHistory(
+            withStatus.map((d) => ({
+              device_id: d.id,
+              device_name: d.name,
+              latitude: d.position[0],
+              longitude: d.position[1],
+              battery: d.battery !== "N/A" ? parseInt(d.battery) : undefined,
+              altitude_m: d.altitude,
+              accuracy_m: d.accuracy,
+              timestamp: new Date(d.date),
+            }))
+          )
+
+          // Track zone violations
+          await trackZoneViolations(withStatus)
 
           const dangerDevices = withStatus.filter((d) => d.inDanger)
           const alertDevices = withStatus.filter((d) => d.inAlert && !d.inDanger)
@@ -137,7 +274,7 @@ export function LeafletMap({ zones, onDangerStatusChange }: LeafletMapProps) {
             alertDevices,
           })
 
-          console.log("Devices loaded:", withStatus)
+          console.log("Devices loaded and tracked:", withStatus.length)
         }
 
         setLoading(false)
@@ -439,9 +576,7 @@ export function LeafletMap({ zones, onDangerStatusChange }: LeafletMapProps) {
 
                 <div className="flex items-center gap-1">
                   <span className="text-muted-foreground">Battery:</span>
-                  <span
-                    className="text-black-600"
-                  >
+                  <span className="text-black-600">
                     {device.battery}
                   </span>
                 </div>

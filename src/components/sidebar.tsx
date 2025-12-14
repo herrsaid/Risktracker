@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Map, Square, HardDrive, Settings, Layers, Menu } from "lucide-react"
+import { Map, Square, HardDrive, Settings, Layers, Menu, BarChart3 } from "lucide-react"
 import { useState } from "react"
 
 export function Sidebar() {
@@ -58,6 +58,7 @@ export function Sidebar() {
             <SidebarItem href="/map" icon={Map} label="Map View" onClick={handleLinkClick} />
             <SidebarItem href="/zones" icon={Square} label="Zone Management" onClick={handleLinkClick} />
             <SidebarItem href="/devices" icon={HardDrive} label="Devices" onClick={handleLinkClick} />
+            <SidebarItem href="/analytics" icon={BarChart3} label="Analytics" onClick={handleLinkClick} />
           </div>
         </div>
 
