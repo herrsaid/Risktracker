@@ -1,6 +1,7 @@
 "use server"
 
 import { supabase } from "@/lib/supabase"
+import { sendWhatsAppAlert } from "@/lib/whatsapp"
 
 // Log device position to history
 export async function logDeviceHistory(devices: {
@@ -38,18 +39,22 @@ export async function logDeviceHistory(devices: {
   }
 }
 
-// Log zone violation
-export async function logZoneViolation(violation: {
-  device_id: string
-  device_name: string
-  zone_id: string
-  zone_name: string
-  zone_type: "danger" | "alert"
-  zone_source: "machine" | "gas"
-  latitude: number
-  longitude: number
-}) {
+// Log zone violation with optional WhatsApp notification
+export async function logZoneViolation(
+  violation: {
+    device_id: string
+    device_name: string
+    zone_id: string
+    zone_name: string
+    zone_type: "danger" | "alert"
+    zone_source: "machine" | "gas"
+    latitude: number
+    longitude: number
+  },
+  send: boolean = false
+) {
   try {
+    // Log the violation
     const { data, error } = await supabase
       .from("zone_violations")
       .insert({
@@ -68,6 +73,38 @@ export async function logZoneViolation(violation: {
     if (error) {
       console.error("Error logging zone violation:", error)
       return { error: error.message }
+    }
+
+    // Only send WhatsApp if send is true
+    if (send) {
+      const { data: deviceData } = await supabase
+        .from("devices")
+        .select("phone_number")
+        .eq("device_id", violation.device_id)
+        .single()
+
+      if (deviceData?.phone_number) {
+        console.log(`Sending WhatsApp alert to ${deviceData.phone_number} for ${violation.zone_type} zone`)
+        
+        const whatsappResult = await sendWhatsAppAlert({
+          to: deviceData.phone_number,
+          deviceName: violation.device_name,
+          zoneName: violation.zone_name,
+          zoneType: violation.zone_type,
+          timestamp: new Date().toLocaleString(),
+        })
+
+        if (whatsappResult.error) {
+          console.error("Failed to send WhatsApp alert:", whatsappResult.error)
+          // Don't fail the entire operation if WhatsApp fails
+        } else {
+          console.log(`✓ WhatsApp ${violation.zone_type} alert sent successfully to ${deviceData.phone_number}`)
+        }
+      } else {
+        console.log(`No phone number found for device ${violation.device_id}`)
+      }
+    } else {
+      console.log(`WhatsApp notification skipped (send = false) for device ${violation.device_id}`)
     }
 
     return { success: true, data }
@@ -105,6 +142,8 @@ export async function updateViolationExit(violationId: string) {
         console.error("Error updating violation exit:", error)
         return { error: error.message }
       }
+
+      console.log(`Violation ${violationId} ended after ${durationSeconds}s`)
     }
 
     return { success: true }
@@ -245,5 +284,129 @@ export async function getAnalyticsSummary(startDate: Date, endDate: Date) {
   } catch (error) {
     console.error("Error in getAnalyticsSummary:", error)
     return { error: "Failed to fetch analytics summary" }
+  }
+}
+
+// Get violations by device
+export async function getViolationsByDevice(
+  startDate?: Date,
+  endDate?: Date
+) {
+  try {
+    let query = supabase
+      .from("zone_violations")
+      .select("device_id, device_name, zone_type")
+
+    if (startDate) {
+      query = query.gte("entered_at", startDate.toISOString())
+    }
+
+    if (endDate) {
+      query = query.lte("entered_at", endDate.toISOString())
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error("Error fetching violations by device:", error)
+      return { error: error.message }
+    }
+
+    // Group by device
+    const deviceStats = new Map<string, { 
+      device_id: string
+      device_name: string
+      total: number
+      danger: number
+      alert: number
+    }>()
+
+    data?.forEach((violation) => {
+      const existing = deviceStats.get(violation.device_id)
+      
+      if (existing) {
+        existing.total++
+        if (violation.zone_type === "danger") {
+          existing.danger++
+        } else {
+          existing.alert++
+        }
+      } else {
+        deviceStats.set(violation.device_id, {
+          device_id: violation.device_id,
+          device_name: violation.device_name,
+          total: 1,
+          danger: violation.zone_type === "danger" ? 1 : 0,
+          alert: violation.zone_type === "alert" ? 1 : 0,
+        })
+      }
+    })
+
+    return { data: Array.from(deviceStats.values()) }
+  } catch (error) {
+    console.error("Error in getViolationsByDevice:", error)
+    return { error: "Failed to fetch violations by device" }
+  }
+}
+
+// Get violations by zone
+export async function getViolationsByZone(
+  startDate?: Date,
+  endDate?: Date
+) {
+  try {
+    let query = supabase
+      .from("zone_violations")
+      .select("zone_id, zone_name, zone_type")
+
+    if (startDate) {
+      query = query.gte("entered_at", startDate.toISOString())
+    }
+
+    if (endDate) {
+      query = query.lte("entered_at", endDate.toISOString())
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error("Error fetching violations by zone:", error)
+      return { error: error.message }
+    }
+
+    // Group by zone
+    const zoneStats = new Map<string, { 
+      zone_id: string
+      zone_name: string
+      total: number
+      danger: number
+      alert: number
+    }>()
+
+    data?.forEach((violation) => {
+      const existing = zoneStats.get(violation.zone_id)
+      
+      if (existing) {
+        existing.total++
+        if (violation.zone_type === "danger") {
+          existing.danger++
+        } else {
+          existing.alert++
+        }
+      } else {
+        zoneStats.set(violation.zone_id, {
+          zone_id: violation.zone_id,
+          zone_name: violation.zone_name,
+          total: 1,
+          danger: violation.zone_type === "danger" ? 1 : 0,
+          alert: violation.zone_type === "alert" ? 1 : 0,
+        })
+      }
+    })
+
+    return { data: Array.from(zoneStats.values()) }
+  } catch (error) {
+    console.error("Error in getViolationsByZone:", error)
+    return { error: "Failed to fetch violations by zone" }
   }
 }
