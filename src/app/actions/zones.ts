@@ -4,6 +4,32 @@ import { supabase } from '@/lib/supabase'
 import { Zone, MachineZone, GasSourcePoint } from '@/components/zones/zones-map'
 import { fetchWeather } from './weather'
 import { calculateGasRiskZones } from '@/lib/gas-zone-calculator'
+export async function updateZone(zoneId: string, updates: {
+  name?: string
+  // Add other updatable fields as needed
+}) {
+  try {
+    const { data, error } = await supabase
+      .from("zones")
+      .update({
+        name: updates.name,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", zoneId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Error updating zone:", error)
+      return { error: error.message }
+    }
+
+    return { success: true, data }
+  } catch (error) {
+    console.error("Error in updateZone:", error)
+    return { error: "Failed to update zone" }
+  }
+}
 
 export async function saveZone(zone: Omit<Zone, 'id' | 'createdAt'>) {
   try {

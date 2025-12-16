@@ -121,3 +121,21 @@
     @apply bg-background text-foreground;
   }
 }
+
+[role="dialog"] {
+  z-index: 9999 !important;
+}
+
+[data-state="open"][data-radix-dialog-overlay] {
+  z-index: 9998 !important;
+}
+
+.leaflet-pane,
+.leaflet-tile-pane,
+.leaflet-overlay-pane,
+.leaflet-shadow-pane,
+.leaflet-marker-pane,
+.leaflet-tooltip-pane,
+.leaflet-popup-pane {
+  z-index: auto !important;
+}

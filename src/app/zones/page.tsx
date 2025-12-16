@@ -4,8 +4,19 @@ import { useState, useEffect } from "react"
 import dynamic from "next/dynamic"
 import { Zone } from "@/components/zones/zones-map"
 import { Badge } from "@/components/ui/badge"
-import { saveZone, fetchZones, deleteZone } from "@/app/actions/zones"
+import { saveZone, fetchZones, deleteZone, updateZone } from "@/app/actions/zones"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Pencil } from "lucide-react"
 
 const ZonesMap = dynamic(
   () => import("@/components/zones/zones-map").then((m) => m.ZonesMap),
@@ -19,6 +30,10 @@ export default function ZonesPage() {
   const [zones, setZones] = useState<Zone[]>([])
   const [currentMode, setCurrentMode] = useState<"machine" | "gas">("machine")
   const [loading, setLoading] = useState(true)
+  const [editingZone, setEditingZone] = useState<Zone | null>(null)
+  const [editedName, setEditedName] = useState("")
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     loadZones()
@@ -52,6 +67,32 @@ export default function ZonesPage() {
     } else {
       alert('Failed to delete zone')
     }
+  }
+
+  const handleEditZone = (zone: Zone) => {
+    setEditingZone(zone)
+    setEditedName(zone.name)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingZone || !editedName.trim()) return
+
+    setIsSaving(true)
+    const result = await updateZone(editingZone.id, {
+      name: editedName.trim(),
+    })
+
+    if (result.success) {
+      await loadZones()
+      setIsEditDialogOpen(false)
+      setEditingZone(null)
+      setEditedName("")
+    } else {
+      alert('Failed to update zone: ' + (result.error || 'Unknown error'))
+    }
+
+    setIsSaving(false)
   }
 
   const machineZones = zones.filter(z => z.source === "machine")
@@ -143,14 +184,24 @@ export default function ZonesPage() {
                 >
                   <div className="flex items-start justify-between mb-1">
                     <span className="font-medium text-sm">{zone.name}</span>
-                    <Button
-                      onClick={() => handleDeleteZone(zone.id)}
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-red-600"
-                    >
-                      Delete
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        onClick={() => handleEditZone(zone)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-blue-600"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        onClick={() => handleDeleteZone(zone.id)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-red-600"
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                   <div className="text-xs text-muted-foreground space-y-1">
                     <div>Shape: {zone.shape}</div>
@@ -180,14 +231,24 @@ export default function ZonesPage() {
                 >
                   <div className="flex items-start justify-between mb-1">
                     <span className="font-medium text-sm">{zone.name}</span>
-                    <Button
-                      onClick={() => handleDeleteZone(zone.id)}
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-red-600"
-                    >
-                      Delete
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        onClick={() => handleEditZone(zone)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-blue-600"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        onClick={() => handleDeleteZone(zone.id)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-red-600"
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                   <div className="text-xs text-muted-foreground space-y-1">
                     <div>Position: {zone.position[0].toFixed(5)}, {zone.position[1].toFixed(5)}</div>
@@ -220,6 +281,63 @@ export default function ZonesPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Zone</DialogTitle>
+            <DialogDescription>
+              Update the zone name and properties
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="zone-name">Zone Name</Label>
+              <Input
+                id="zone-name"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                placeholder="Enter zone name"
+              />
+            </div>
+
+            {editingZone && (
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Type:</span>
+                  <span className="font-medium">
+                    {editingZone.source === "machine" ? "🏭 Machine Zone" : "💨 Gas Source"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Created:</span>
+                  <span className="font-medium">
+                    {new Date(editingZone.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={isSaving || !editedName.trim()}
+            >
+              {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

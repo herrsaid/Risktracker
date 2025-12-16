@@ -322,6 +322,8 @@ export function LeafletMap({ zones, onDangerStatusChange }: LeafletMapProps) {
     <MapContainer
       center={mapCenter}
       zoom={12}
+      minZoom={2}
+      maxZoom={19}
       preferCanvas={true}
       className="h-full w-full rounded-lg border"
       style={{ height: "100%", width: "100%" }}
@@ -335,6 +337,7 @@ export function LeafletMap({ zones, onDangerStatusChange }: LeafletMapProps) {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             maxZoom={19}
+            maxNativeZoom={19}
           />
         </LayersControl.BaseLayer>
 
@@ -344,6 +347,7 @@ export function LeafletMap({ zones, onDangerStatusChange }: LeafletMapProps) {
             attribution='Tiles &copy; Esri'
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             maxZoom={19}
+            maxNativeZoom={18}
           />
         </LayersControl.BaseLayer>
       </LayersControl>
